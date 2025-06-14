@@ -73,12 +73,17 @@ jobs:
           context: .
           file: ./Dockerfile
           push: false
+          load: true
           tags: todo-app:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Test Docker image
         run: |
+          # 檢查可用的 Docker images
+          echo "Available Docker images:"
+          docker images
+
           # 建立自訂網路讓容器能夠連接
           docker network create test-network
           
@@ -92,9 +97,11 @@ jobs:
             postgres:17-alpine
 
           # 等待 PostgreSQL 啟動
+          echo "Waiting for PostgreSQL to start..."
           sleep 15
 
           # 測試應用程式容器
+          echo "Starting todo-app container..."
           docker run --rm -d \
             --name test-container \
             --network test-network \
@@ -103,14 +110,18 @@ jobs:
             todo-app:test
 
           # 等待容器啟動並檢查狀態
+          echo "Waiting for application to start..."
           sleep 45
 
           # 檢查容器是否正在運行
+          echo "Checking container status..."
           if docker ps | grep test-container; then
             echo "✓ Container is running successfully"
+            echo "Container logs:"
             docker logs test-container
           else
             echo "✗ Container failed to start"
+            echo "Container logs:"
             docker logs test-container
             # 清理
             docker stop test-postgres 2>/dev/null || true
