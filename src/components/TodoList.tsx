@@ -1,42 +1,105 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface ToDo {
   id: number;
-  text: string;
+  title: string;
   completed: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const TodoList = () => {
   const [todos, setTodos] = useState<ToDo[]>([]);
   const [inputValue, setInputValue] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const addTodos = () => {
+  // 載入待辦事項
+  const fetchTodos = async () => {
+    try {
+      const response = await fetch("/api/todos");
+      const data = await response.json();
+      setTodos(data);
+    } catch (error) {
+      console.error("Failed to fetch todos:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTodos();
+  }, []);
+
+  const addTodos = async () => {
     if (inputValue.trim() === "") return;
 
-    setTodos((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        text: inputValue.trim(),
-        completed: false,
-      },
-    ]);
-    setInputValue("");
+    try {
+      const response = await fetch("/api/todos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text: inputValue.trim() }),
+      });
+
+      if (response.ok) {
+        const newTodo = await response.json();
+        setTodos((prev) => [newTodo, ...prev]);
+        setInputValue("");
+      }
+    } catch (error) {
+      console.error("Failed to add todo:", error);
+    }
   };
 
-  const toggleTodo = (id: number) => {
-    setTodos((prev) =>
-      prev.map((todo) =>
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-      )
+  const toggleTodo = async (id: number) => {
+    const todo = todos.find((t) => t.id === id);
+    if (!todo) return;
+
+    try {
+      const response = await fetch(`/api/todos/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ completed: !todo.completed }),
+      });
+
+      if (response.ok) {
+        setTodos((prev) =>
+          prev.map((todo) =>
+            todo.id === id ? { ...todo, completed: !todo.completed } : todo
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Failed to toggle todo:", error);
+    }
+  };
+
+  const deleteTodo = async (id: number) => {
+    try {
+      const response = await fetch(`/api/todos/${id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        setTodos((prev) => prev.filter((todo) => todo.id !== id));
+      }
+    } catch (error) {
+      console.error("Failed to delete todo:", error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-lg shadow-lg">
+        <div className="text-center">載入中...</div>
+      </div>
     );
-  };
-
-  const deleteTodo = (id: number) => {
-    setTodos((prev) => prev.filter((todo) => todo.id !== id));
-  };
+  }
 
   return (
     <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-lg shadow-lg">
@@ -83,7 +146,7 @@ const TodoList = () => {
                 todo.completed ? "line-through text-gray-500" : "text-gray-800"
               }`}
             >
-              {todo.text}
+              {todo.title}
             </span>
             <button
               onClick={() => deleteTodo(todo.id)}
