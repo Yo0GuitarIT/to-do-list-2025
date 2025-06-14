@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  # 只有應用程式，假設使用外部資料庫（如 Render 提供的 PostgreSQL）
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      # DATABASE_URL 應該從環境變數或部署平台設定
+    command: >
+      sh -c "
+        echo 'Starting production server...' &&
+        npx prisma db push --accept-data-loss &&
+        node server.js
+      "
+
+networks:
+  default:
+    driver: bridge

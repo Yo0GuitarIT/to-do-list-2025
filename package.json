@@ -8,10 +8,21 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "docker:build": "docker build -t todo-app:latest .",
+    "docker:run": "docker run -p 3000:3000 --env-file .env todo-app:latest",
+    "docker:compose:up": "docker-compose up --build -d",
+    "docker:compose:down": "docker-compose down",
+    "docker:compose:logs": "docker-compose logs -f",
+    "docker:compose:dev": "docker-compose up --build",
+    "prisma:generate": "npx prisma generate",
+    "prisma:push": "npx prisma db push",
+    "prisma:migrate": "npx prisma migrate dev",
+    "prisma:studio": "npx prisma studio"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
+    "@tailwindcss/postcss": "^4",
     "next": "15.3.3",
     "prisma": "^6.9.0",
     "react": "^19.0.0",
@@ -19,7 +30,6 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
