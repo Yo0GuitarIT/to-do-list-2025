@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: 🚀 To-Do List CI/CD Pipeline
 
 on:
   push:
@@ -6,10 +6,14 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  NODE_VERSION: "18"
+  DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/testdb
+
 jobs:
-  # 🧪 測試階段
-  test:
-    name: Run Tests
+  # 🔍 程式碼品質檢查 & 測試
+  quality-check:
+    name: 🧪 Quality Check & Tests
     runs-on: ubuntu-latest
 
     services:
@@ -28,94 +32,69 @@ jobs:
           - 5432:5432
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: 🔧 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: npm ci
 
-      - name: Setup test database
-        env:
-          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/testdb
+      - name: 🗄️ Setup database
         run: |
           npx prisma generate
           npx prisma db push
 
-      - name: Run ESLint
+      - name: 🔍 Run ESLint
         run: npm run lint
 
-      - name: Run tests
-        env:
-          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/testdb
+      - name: 🧪 Run tests
         run: npm run test:run
 
-  # 🏗️ 建置階段
-  build:
-    name: Build Application
-    runs-on: ubuntu-latest
-    needs: test
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      - name: Build application
+      - name: 🏗️ Test build
         run: npm run build
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-files
-          path: .next/
-          retention-days: 1
-
-  # 🚀 部署階段 (只在 main 分支且前面階段成功時執行)
+  # 🚀 部署到 Render (只在 main 分支成功時執行)
   deploy:
-    name: Deploy to Render
+    name: 🚀 Deploy to Render
     runs-on: ubuntu-latest
-    needs: [test, build]
+    needs: quality-check
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
-      - name: Deploy to Render
+      - name: 🚀 Trigger Render deployment
         run: |
-          echo "🚀 Triggering Render deployment..."
-          response=$(curl -s -w "%{http_code}" -X POST \
+          echo "🚀 Starting deployment to Render..."
+
+          response=$(curl -s -w "\n%{http_code}" -X POST \
             -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
             -H "Accept: application/json" \
             -H "Content-Type: application/json" \
             -d '{"clearCache": "clear"}' \
             "https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploys")
 
-          http_code=$(echo "$response" | tail -c 4)
+          http_code=$(echo "$response" | tail -n1)
+          response_body=$(echo "$response" | head -n -1)
+
+          echo "HTTP Status: $http_code"
+          echo "Response: $response_body"
 
           if [ "$http_code" = "201" ]; then
-            echo "✅ Render deployment triggered successfully!"
+            echo "✅ Deployment triggered successfully!"
+            echo "🌐 Your app will be available on Render shortly"
           else
-            echo "❌ Render deployment failed with HTTP code: $http_code"
-            echo "Response: $response"
+            echo "❌ Deployment failed!"
             exit 1
           fi
 
-      - name: Deployment notification
+      - name: 📝 Deployment summary
         run: |
-          echo "🎉 Deployment completed!"
-          echo "Your application should be available on Render shortly."
+          echo "## 🎉 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+          echo "- **Platform**: Render.com" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
