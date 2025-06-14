@@ -1,7 +1,7 @@
-import { vi } from "vitest";
+/// <reference types="vitest" />
 
 declare global {
-  var vi: typeof vi;
+  var vi: typeof import("vitest").vi;
 }
 
 export {};
