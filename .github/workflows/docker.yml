@@ -79,17 +79,47 @@ jobs:
 
       - name: Test Docker image
         run: |
+          # 建立自訂網路讓容器能夠連接
+          docker network create test-network
+          
+          # 啟動 PostgreSQL 容器
+          docker run --rm -d \
+            --name test-postgres \
+            --network test-network \
+            -e POSTGRES_USER=testuser \
+            -e POSTGRES_PASSWORD=testpass \
+            -e POSTGRES_DB=testdb \
+            postgres:17-alpine
+
+          # 等待 PostgreSQL 啟動
+          sleep 15
+
+          # 測試應用程式容器
           docker run --rm -d \
             --name test-container \
+            --network test-network \
             -p 3000:3000 \
-            -e DATABASE_URL="postgresql://testuser:testpass@host.docker.internal:5432/testdb" \
+            -e DATABASE_URL="postgresql://testuser:testpass@test-postgres:5432/testdb" \
             todo-app:test
 
-          # 等待容器啟動
-          sleep 30
+          # 等待容器啟動並檢查狀態
+          sleep 45
 
           # 檢查容器是否正在運行
-          docker ps | grep test-container
+          if docker ps | grep test-container; then
+            echo "✓ Container is running successfully"
+            docker logs test-container
+          else
+            echo "✗ Container failed to start"
+            docker logs test-container
+            # 清理
+            docker stop test-postgres 2>/dev/null || true
+            docker network rm test-network 2>/dev/null || true
+            exit 1
+          fi
 
-          # 停止容器
-          docker stop test-container
+          echo "Docker image test passed!"
+
+          # 清理
+          docker stop test-container test-postgres
+          docker network rm test-network
